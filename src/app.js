@@ -269,14 +269,74 @@ app.get('/admin/best-profession', getProfile, async (req, res) => {
     group by p.profession;`,
     {
       replacements: {
-        startAt: new Date(start).toISOString(),
-        endAt: new Date(end).toISOString(),
+        startAt: startDate.toISOString(),
+        endAt: endDate.toISOString(),
       },
       type: QueryTypes.SELECT,
     },
   );
 
   res.json(bestProfessions);
+});
+
+app.get('/admin/best-clients', getProfile, async (req, res) => {
+  const { start, end, limit = 2 } = req.query;
+  const dateRegex = /^2\d{3}-\d{2}-\d{2}$/;
+
+  const areParamFormatValid = dateRegex.test(start) && dateRegex.test(end);
+  if (!areParamFormatValid) {
+    res
+      .status(400)
+      .json({ message: 'Invalid date filters, please use this format YYYY-MM-DD' });
+    return;
+  }
+
+  const startDate = new Date(start);
+  startDate.setUTCHours(0, 0, 0, 0);
+
+  // correction to allow filtering in the same day
+  const endDate = new Date(end);
+  endDate.setUTCHours(23, 59, 59, 999);
+
+  if (startDate.getTime() >= endDate.getTime()) {
+    res
+      .status(400)
+      .json({ message: 'Invalid date range start should be before end date' });
+    return;
+  }
+
+  const bestClients = await sequelize.query(
+    `   
+    select sum(price) paid, p.id, p.firstName, p.lastName
+    from jobs j 
+        inner join Contracts c on j.ContractId = c.id 
+        inner join Profiles p on c.ClientId  = p.id
+    where paid = 1 and p.type = 'client'
+        and paymentDate >= :startAt and paymentDate <= :endAt
+        group by p.id
+    order by 1 desc
+    limit :limit;`,
+    {
+      replacements: {
+        startAt: startDate.toISOString(),
+        endAt: endDate.toISOString(),
+        limit,
+      },
+      type: QueryTypes.SELECT,
+    },
+  );
+
+  res.json(
+    bestClients.map((client) => {
+      // eslint-disable-next-line object-curly-newline
+      const { paid, firstName, lastName, id } = client;
+      return {
+        id,
+        paid,
+        fullName: `${firstName.trim()} ${lastName.trim()}`,
+      };
+    }),
+  );
 });
 
 module.exports = app;
