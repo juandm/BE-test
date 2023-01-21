@@ -1,5 +1,5 @@
 const express = require('express');
-const { Op } = require('sequelize');
+const { Op, QueryTypes } = require('sequelize');
 const { sequelize } = require('./model');
 const { getProfile } = require('./middleware/getProfile');
 
@@ -229,6 +229,54 @@ app.post('/balances/deposit/:userId', getProfile, async (req, res) => {
     await trx.rollback();
     res.status(500).json({ message: 'Error processing the deposit' }).end();
   }
+});
+
+app.get('/admin/best-profession', getProfile, async (req, res) => {
+  const { start, end } = req.query;
+  const dateRegex = /^2\d{3}-\d{2}-\d{2}$/;
+
+  const areParamFormatValid = dateRegex.test(start) && dateRegex.test(end);
+  if (!areParamFormatValid) {
+    res
+      .status(400)
+      .json({ message: 'Invalid date filters, please use this format YYYY-MM-DD' });
+    return;
+  }
+
+  const startDate = new Date(start);
+  startDate.setUTCHours(0, 0, 0, 0);
+
+  // correction to allow filtering in the same day
+  const endDate = new Date(end);
+  endDate.setUTCHours(23, 59, 59, 999);
+
+  if (startDate.getTime() >= endDate.getTime()) {
+    res
+      .status(400)
+      .json({ message: 'Invalid date range start should be before end date' });
+    return;
+  }
+
+  const bestProfessions = await sequelize.query(
+    `
+    select sum(price) as totalEarned, profession
+    from jobs j 
+        inner join Contracts c on j.ContractId = c.id 
+        inner join Profiles p on c.ContractorId = p.id
+    where
+        paid = 1 and p.type = 'contractor'
+        and paymentDate >= :startAt AND paymentDate <= :endAt
+    group by p.profession;`,
+    {
+      replacements: {
+        startAt: new Date(start).toISOString(),
+        endAt: new Date(end).toISOString(),
+      },
+      type: QueryTypes.SELECT,
+    },
+  );
+
+  res.json(bestProfessions);
 });
 
 module.exports = app;
