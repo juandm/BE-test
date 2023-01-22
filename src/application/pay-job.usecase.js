@@ -58,12 +58,17 @@ const newPayJobUseCase = ({ jobRepository, utils }) => {
       }
 
       const { Client, Contractor } = jobContract;
-
+      // TODO: move to repositories
+      // save new balances
       Client.balance = (Client.balance - paymentValue).toFixed(2);
       Contractor.balance = (Contractor.balance + paymentValue).toFixed(2);
-
       await Client.save({ transaction: trx });
       await Contractor.save({ transaction: trx });
+
+      // mark job as paid
+      job.paid = 1;
+      job.paymentDate = new Date().toISOString();
+      await job.save({ transaction: trx });
 
       await commitTransaction(trx);
       return { success: true };
