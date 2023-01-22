@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 const express = require('express');
 
 const router = express.Router();
@@ -7,6 +8,33 @@ function loadAdminRoutes({
   getBestProfessionsUseCase,
   middlewares,
 }) {
+  /**
+   * @openapi
+   * /admin/best-profession:
+   *   get:
+   *     tags: [Admin]
+   *     security:
+   *       - ApiAuth: []
+   *     produces:
+   *       - application/json
+   *     parameters:
+   *       - name: start
+   *         description: start date to filter the result example (2020-08-01)
+   *         required: true
+   *         in: query
+   *         schema:
+   *           type: string
+   *       - name: end
+   *         description: end date to filter the result example (2020-08-21)
+   *         required: true
+   *         in: query
+   *         schema:
+   *           type: string
+   *     description: get a report with the list of professions that earned more money in the given time window
+   *     responses:
+   *       200:
+   *         description: Array of professions
+   */
   router.get('/best-profession', ...middlewares, async (req, res) => {
     const { start, end } = req.query;
     const dateRegex = /^2\d{3}-\d{2}-\d{2}$/;
@@ -36,6 +64,39 @@ function loadAdminRoutes({
     res.json(bestProfessions);
   });
 
+  /**
+   * @openapi
+   * /admin/best-clients:
+   *   get:
+   *     tags: [Admin]
+   *     security:
+   *       - ApiAuth: []
+   *     produces:
+   *       - application/json
+   *     parameters:
+   *       - name: start
+   *         description: start date to filter the result example (2020-08-01)
+   *         required: true
+   *         in: query
+   *         schema:
+   *           type: string
+   *       - name: end
+   *         description: end date to filter the result example (2020-08-21)
+   *         required: true
+   *         in: query
+   *         schema:
+   *           type: string
+   *       - name: limit
+   *         description: number of items to be returned. defaults to 2
+   *         required: false
+   *         in: query
+   *         schema:
+   *           type: number
+   *     description: get a report with the list of clients that paid more for jobs in the given time window
+   *     responses:
+   *       200:
+   *         description: Array of clients
+   */
   router.get('/best-clients', ...middlewares, async (req, res) => {
     const { start, end, limit = 2 } = req.query;
     const dateRegex = /^2\d{3}-\d{2}-\d{2}$/;

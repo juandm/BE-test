@@ -1,4 +1,7 @@
 const express = require('express');
+const swaggerUi = require('swagger-ui-express');
+const { openApiSpecification } = require('./shared/open-api');
+
 const { db } = require('./infrastructure/database');
 const { getProfile } = require('./middleware/getProfile');
 
@@ -79,5 +82,7 @@ app.use('/contracts', contractRouter);
 app.use('/admin', adminRouter);
 app.use('/jobs', jobsRouter);
 app.use('/balances', balanceRouter);
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiSpecification));
 
 module.exports = app;
