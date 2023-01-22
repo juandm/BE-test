@@ -1,5 +1,5 @@
 const express = require('express');
-const errorTypes = require('../../../shared/error-types.enum');
+const { mapError } = require('../utils/http-error-response.mapper');
 
 const router = express.Router();
 
@@ -20,24 +20,7 @@ function loadBalancesRoutes({ payJobUseCase, depositMoneyUseCase, middlewares })
     }
 
     // map error response to http responses
-    const errorResponse = {
-      message: '',
-      httpStatus: 500,
-    };
-
-    errorResponse.message = response.message;
-    switch (response.type) {
-      case errorTypes.INTERNAL_ERROR:
-        errorResponse.httpStatus = 500;
-        break;
-      case errorTypes.UNPROCESSABLE:
-        errorResponse.httpStatus = 422;
-        break;
-      default:
-        errorResponse.httpStatus = 500;
-        break;
-    }
-
+    const errorResponse = mapError(response);
     res.status(errorResponse.httpStatus).json({ message: errorResponse.message });
   });
 
@@ -62,24 +45,7 @@ function loadBalancesRoutes({ payJobUseCase, depositMoneyUseCase, middlewares })
     }
 
     // map error response to http responses
-    const errorResponse = {
-      message: '',
-      httpStatus: 500,
-    };
-
-    errorResponse.message = response.message;
-    switch (response.type) {
-      case errorTypes.INTERNAL_ERROR:
-        errorResponse.httpStatus = 500;
-        break;
-      case errorTypes.UNPROCESSABLE:
-        errorResponse.httpStatus = 422;
-        break;
-      default:
-        errorResponse.httpStatus = 500;
-        break;
-    }
-
+    const errorResponse = mapError(response);
     res.status(errorResponse.httpStatus).json({ message: errorResponse.message });
   });
 
