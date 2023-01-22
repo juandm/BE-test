@@ -51,7 +51,19 @@ const newProfilesRepository = ({ dbClient }) => {
     return bestClients;
   }
 
-  return { getBestProfessions, getBestClients };
+  async function getById(clientId, transaction = undefined) {
+    const { Profile } = dbClient.models;
+
+    const client = await Profile.findOne({
+      lock: transaction !== undefined,
+      transaction,
+      where: { id: clientId },
+    });
+
+    return client;
+  }
+
+  return { getBestProfessions, getBestClients, getById };
 };
 
 module.exports = { newProfilesRepository };

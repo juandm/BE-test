@@ -28,7 +28,56 @@ const newJobsRepository = ({ dbClient }) => {
     return jobs;
   }
 
-  return { getJobs };
+  async function getJobById(jobId, transaction = undefined) {
+    const { Job, Contract, Profile } = dbClient.models;
+
+    const job = await Job.findOne({
+      lock: true,
+      transaction,
+      include: [
+        {
+          model: Contract,
+          include: [
+            {
+              model: Profile,
+              as: 'Client',
+            },
+            {
+              model: Profile,
+              as: 'Contractor',
+            },
+          ],
+        },
+      ],
+      where: {
+        id: jobId,
+      },
+    });
+
+    return job;
+  }
+
+  async function getTotalUnpaidClientJobs(clientId, transaction = undefined) {
+    const { Job, Contract } = dbClient.models;
+
+    const totalUnpaidClientJobs = await Job.sum('price', {
+      lock: transaction !== undefined,
+      transaction,
+      include: {
+        model: Contract,
+        where: {
+          ClientId: clientId,
+        },
+      },
+      where: {
+        paid: null,
+      },
+    });
+
+    return totalUnpaidClientJobs;
+  }
+
+  return { getJobs, getJobById, getTotalUnpaidClientJobs };
 };
 
 module.exports = { newJobsRepository };
