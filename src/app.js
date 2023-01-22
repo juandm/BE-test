@@ -1,47 +1,34 @@
 const express = require('express');
-const { Op, QueryTypes } = require('sequelize');
-// const { sequelize } = require('./model');
-const { db } = require('./infraestructure/database');
+const { QueryTypes } = require('sequelize');
+const { db } = require('./infrastructure/database');
 const { getProfile } = require('./middleware/getProfile');
+
+const { newGetContractByIdUseCase } = require('./application/get-contract-by-id.usecase');
+const { newGetActiveUseCase } = require('./application/get-active-contracts.usecase');
+const { newGetUnpaidJobsUseCase } = require('./application/get-unpaid-jobs.usecase');
+const {
+  newContractsRepository,
+} = require('./infrastructure/contracts/contracts.repository');
+const { newJobsRepository } = require('./infrastructure/jobs/jobs.repository');
 
 const app = express();
 app.use(express.json());
 
 app.get('/contracts', getProfile, async (req, res) => {
-  const { Contract, Profile } = db.models;
-  const { id: profileId } = req.profile;
-
-  const fullContracts = await Contract.findAll({
-    include: [
-      {
-        model: Profile,
-        as: 'Client',
-      },
-      {
-        model: Profile,
-        as: 'Contractor',
-      },
-    ],
-    where: {
-      [Op.or]: [{ ClientId: profileId }, { ContractorId: profileId }],
-      status: { [Op.ne]: 'terminated' },
-    },
-  });
-
-  const contracts = fullContracts.map((contract) => {
-    const { Client, Contractor, ...rest } = contract.get({ plain: true });
-    return rest;
-  });
-
+  const { profile } = req;
+  const contractRepository = newContractsRepository({ dbClient: db });
+  const useCase = newGetActiveUseCase({ contractRepository });
+  const contracts = await useCase.execute({ profileId: profile.id });
   return res.json(contracts);
 });
 
 app.get('/contracts/:id', getProfile, async (req, res) => {
-  const { Contract } = db.models;
   const { id: profileId } = req.profile;
   const { id: contractId } = req.params;
 
-  const contract = await Contract.findOne({ where: { id: contractId } });
+  const contractRepository = newContractsRepository({ dbClient: db });
+  const useCase = newGetContractByIdUseCase({ contractRepository });
+  const contract = await useCase.execute({ contractId });
 
   if (!contract) return res.status(404).end();
 
@@ -53,29 +40,11 @@ app.get('/contracts/:id', getProfile, async (req, res) => {
 });
 
 app.get('/jobs/unpaid', getProfile, async (req, res) => {
-  const { Job, Contract } = db.models;
   const { id: profileId } = req.profile;
 
-  const fullJobs = await Job.findAll({
-    include: [
-      {
-        model: Contract,
-        where: {
-          [Op.or]: [{ ClientId: profileId }, { ContractorId: profileId }],
-          status: 'in_progress',
-        },
-      },
-    ],
-    where: {
-      paid: null,
-    },
-  });
-
-  const jobs = fullJobs.map((job) => {
-    const { Contract: contract, ...rest } = job.get({ plain: true });
-    return rest;
-  });
-
+  const jobRepository = newJobsRepository({ dbClient: db });
+  const useCase = newGetUnpaidJobsUseCase({ jobRepository });
+  const jobs = await useCase.execute({ profileId });
   res.json(jobs);
 });
 

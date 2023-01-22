@@ -21,9 +21,21 @@ const newContractsRepository = ({ dbClient }) => {
       },
     });
 
-    return fullContracts;
+    const contracts = fullContracts.map((contract) => {
+      const { Client, Contractor, ...rest } = contract.get({ plain: true });
+      return rest;
+    });
+
+    return contracts;
   }
-  return { getActiveContracts };
+
+  async function getContractById(contractId) {
+    const { Contract } = dbClient.models;
+    const contract = await Contract.findOne({ where: { id: contractId } });
+    return contract;
+  }
+
+  return { getActiveContracts, getContractById };
 };
 
 module.exports = { newContractsRepository };

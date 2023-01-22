@@ -1,4 +1,4 @@
-const { db } = require('../infraestructure/database');
+const { db } = require('../infrastructure/database');
 
 // eslint-disable-next-line consistent-return
 const getProfile = async (req, res, next) => {
