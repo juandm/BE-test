@@ -1,15 +1,24 @@
 const express = require('express');
-const { QueryTypes } = require('sequelize');
 const { db } = require('./infrastructure/database');
 const { getProfile } = require('./middleware/getProfile');
 
+// Use cases
+const {
+  newGetBestProfessionsUseCase,
+} = require('./application/get-best-professions.usecase');
+const { newGetBestClientsUseCase } = require('./application/get-best-clients.usecase');
 const { newGetContractByIdUseCase } = require('./application/get-contract-by-id.usecase');
 const { newGetActiveUseCase } = require('./application/get-active-contracts.usecase');
 const { newGetUnpaidJobsUseCase } = require('./application/get-unpaid-jobs.usecase');
+
+// Repositories
 const {
   newContractsRepository,
 } = require('./infrastructure/contracts/contracts.repository');
 const { newJobsRepository } = require('./infrastructure/jobs/jobs.repository');
+const {
+  newProfilesRepository,
+} = require('./infrastructure/profiles/profiles.repository');
 
 const app = express();
 app.use(express.json());
@@ -212,38 +221,17 @@ app.get('/admin/best-profession', getProfile, async (req, res) => {
   }
 
   const startDate = new Date(start);
-  startDate.setUTCHours(0, 0, 0, 0);
-
-  // correction to allow filtering in the same day
   const endDate = new Date(end);
-  endDate.setUTCHours(23, 59, 59, 999);
-
-  if (startDate.getTime() >= endDate.getTime()) {
+  if (startDate.getTime() > endDate.getTime()) {
     res
       .status(400)
       .json({ message: 'Invalid date range start should be before end date' });
     return;
   }
 
-  const { connection } = db;
-  const bestProfessions = await connection.query(
-    `
-    select sum(price) as totalEarned, profession
-    from jobs j
-        inner join Contracts c on j.ContractId = c.id
-        inner join Profiles p on c.ContractorId = p.id
-    where
-        paid = 1 and p.type = 'contractor'
-        and paymentDate >= :startAt AND paymentDate <= :endAt
-    group by p.profession;`,
-    {
-      replacements: {
-        startAt: startDate.toISOString(),
-        endAt: endDate.toISOString(),
-      },
-      type: QueryTypes.SELECT,
-    },
-  );
+  const profileRepository = newProfilesRepository({ dbClient: db });
+  const useCase = newGetBestProfessionsUseCase({ profileRepository });
+  const bestProfessions = await useCase.execute({ startAt: startDate, endAt: endDate });
 
   res.json(bestProfessions);
 });
@@ -261,52 +249,22 @@ app.get('/admin/best-clients', getProfile, async (req, res) => {
   }
 
   const startDate = new Date(start);
-  startDate.setUTCHours(0, 0, 0, 0);
-
-  // correction to allow filtering in the same day
   const endDate = new Date(end);
-  endDate.setUTCHours(23, 59, 59, 999);
-
-  if (startDate.getTime() >= endDate.getTime()) {
+  if (startDate.getTime() > endDate.getTime()) {
     res
       .status(400)
       .json({ message: 'Invalid date range start should be before end date' });
     return;
   }
 
-  const { connection } = db;
-  const bestClients = await connection.query(
-    `
-    select sum(price) paid, p.id, p.firstName, p.lastName
-    from jobs j
-        inner join Contracts c on j.ContractId = c.id
-        inner join Profiles p on c.ClientId  = p.id
-    where paid = 1 and p.type = 'client'
-        and paymentDate >= :startAt and paymentDate <= :endAt
-        group by p.id
-    order by 1 desc
-    limit :limit;`,
-    {
-      replacements: {
-        startAt: startDate.toISOString(),
-        endAt: endDate.toISOString(),
-        limit,
-      },
-      type: QueryTypes.SELECT,
-    },
-  );
-
-  res.json(
-    bestClients.map((client) => {
-      // eslint-disable-next-line object-curly-newline
-      const { paid, firstName, lastName, id } = client;
-      return {
-        id,
-        paid,
-        fullName: `${firstName.trim()} ${lastName.trim()}`,
-      };
-    }),
-  );
+  const profileRepository = newProfilesRepository({ dbClient: db });
+  const useCase = newGetBestClientsUseCase({ profileRepository });
+  const bestClients = await useCase.execute({
+    startAt: startDate,
+    endAt: endDate,
+    limit,
+  });
+  res.json(bestClients);
 });
 
 module.exports = app;
