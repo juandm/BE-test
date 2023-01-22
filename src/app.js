@@ -1,15 +1,14 @@
 const express = require('express');
 const { Op, QueryTypes } = require('sequelize');
-const { sequelize } = require('./model');
+// const { sequelize } = require('./model');
+const { db } = require('./infraestructure/database');
 const { getProfile } = require('./middleware/getProfile');
 
 const app = express();
 app.use(express.json());
-app.set('sequelize', sequelize);
-app.set('models', sequelize.models);
 
 app.get('/contracts', getProfile, async (req, res) => {
-  const { Contract, Profile } = req.app.get('models');
+  const { Contract, Profile } = db.models;
   const { id: profileId } = req.profile;
 
   const fullContracts = await Contract.findAll({
@@ -38,7 +37,7 @@ app.get('/contracts', getProfile, async (req, res) => {
 });
 
 app.get('/contracts/:id', getProfile, async (req, res) => {
-  const { Contract } = req.app.get('models');
+  const { Contract } = db.models;
   const { id: profileId } = req.profile;
   const { id: contractId } = req.params;
 
@@ -54,7 +53,7 @@ app.get('/contracts/:id', getProfile, async (req, res) => {
 });
 
 app.get('/jobs/unpaid', getProfile, async (req, res) => {
-  const { Job, Contract } = req.app.get('models');
+  const { Job, Contract } = db.models;
   const { id: profileId } = req.profile;
 
   const fullJobs = await Job.findAll({
@@ -81,7 +80,7 @@ app.get('/jobs/unpaid', getProfile, async (req, res) => {
 });
 
 app.post('/balances/:jobId/pay', getProfile, async (req, res) => {
-  const { Job, Contract, Profile } = req.app.get('models');
+  const { Job, Contract, Profile } = db.models;
   const dbConnection = req.app.get('sequelize');
   const { profile, params, body } = req;
   const { jobId } = params;
@@ -169,7 +168,7 @@ app.post('/balances/:jobId/pay', getProfile, async (req, res) => {
 });
 
 app.post('/balances/deposit/:userId', getProfile, async (req, res) => {
-  const { Job, Contract, Profile } = req.app.get('models');
+  const { Job, Contract, Profile } = db.models;
   const dbConnection = req.app.get('sequelize');
   const { profile, params, body } = req;
   const { userId } = params;
@@ -257,11 +256,12 @@ app.get('/admin/best-profession', getProfile, async (req, res) => {
     return;
   }
 
-  const bestProfessions = await sequelize.query(
+  const { connection } = db;
+  const bestProfessions = await connection.query(
     `
     select sum(price) as totalEarned, profession
-    from jobs j 
-        inner join Contracts c on j.ContractId = c.id 
+    from jobs j
+        inner join Contracts c on j.ContractId = c.id
         inner join Profiles p on c.ContractorId = p.id
     where
         paid = 1 and p.type = 'contractor'
@@ -305,11 +305,12 @@ app.get('/admin/best-clients', getProfile, async (req, res) => {
     return;
   }
 
-  const bestClients = await sequelize.query(
-    `   
+  const { connection } = db;
+  const bestClients = await connection.query(
+    `
     select sum(price) paid, p.id, p.firstName, p.lastName
-    from jobs j 
-        inner join Contracts c on j.ContractId = c.id 
+    from jobs j
+        inner join Contracts c on j.ContractId = c.id
         inner join Profiles p on c.ClientId  = p.id
     where paid = 1 and p.type = 'client'
         and paymentDate >= :startAt and paymentDate <= :endAt
